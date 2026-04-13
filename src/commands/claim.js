@@ -5,18 +5,18 @@ const { getSettings } = require('../utils/guildSettings');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('claim')
-    .setDescription('Claim the current ticket'),
+    .setDescription('استلام التذكرة الحالية'),
 
   async execute(interaction, client) {
     const ticket = getTicket(interaction.channelId);
-    if (!ticket) return interaction.reply({ content: '❌ This channel is not a ticket.', flags: 64 });
+    if (!ticket) return interaction.reply({ content: '❌ هذه القناة ليست تذكرة.', flags: 64 });
 
     const settings = getSettings(interaction.guildId);
     const isStaff = (settings.staffRoleIds || []).some(r => interaction.member.roles.cache.has(r));
-    if (!isStaff) return interaction.reply({ content: '❌ Only staff can claim tickets.', flags: 64 });
+    if (!isStaff) return interaction.reply({ content: '❌ فقط الستاف يمكنهم استلام التذاكر.', flags: 64 });
 
     if (ticket.claimedBy) {
-      return interaction.reply({ content: `❌ Already claimed by <@${ticket.claimedBy}>.`, flags: 64 });
+      return interaction.reply({ content: `❌ التذكرة مستلَمة بالفعل من <@${ticket.claimedBy}>.`, flags: 64 });
     }
 
     updateTicket(interaction.channelId, { claimedBy: interaction.user.id });
@@ -24,7 +24,7 @@ module.exports = {
     await interaction.reply({
       embeds: [
         new EmbedBuilder()
-          .setDescription(`🙋 Ticket claimed by ${interaction.user}`)
+          .setDescription(`🙋 تم استلام التذكرة بواسطة ${interaction.user}`)
           .setColor(0x57f287)
           .setFooter({ text: '𝐍𝐞𝐱𝐮𝐬 𝐒𝐜𝐫𝐢𝐩𝐭', iconURL: ICON_URL })
       ]
