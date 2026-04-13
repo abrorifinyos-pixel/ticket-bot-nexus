@@ -6,7 +6,7 @@ const { getSettings } = require('../utils/guildSettings');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('stats')
-    .setDescription('Show ticket statistics for this server')
+    .setDescription('إحصائيات التذاكر في هذا السيرفر')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction, client) {
@@ -19,34 +19,30 @@ module.exports = {
     const open = guildTickets.filter(t => t.status === 'open').length;
     const closed = guildTickets.filter(t => t.status === 'closed').length;
     const rated = guildTickets.filter(t => t.rating).length;
-
     const avgRating = rated
       ? (guildTickets.filter(t => t.rating).reduce((a, t) => a + t.rating, 0) / rated).toFixed(1)
-      : 'N/A';
+      : 'لا يوجد';
 
     const settings = getSettings(interaction.guildId);
     const counter = settings.ticketCounter || total;
 
-    // Category breakdown
     const catMap = {};
     for (const t of guildTickets) {
-      catMap[t.categoryLabel || 'Unknown'] = (catMap[t.categoryLabel || 'Unknown'] || 0) + 1;
+      const key = t.categoryLabel || 'غير معروف';
+      catMap[key] = (catMap[key] || 0) + 1;
     }
-    const catText = Object.entries(catMap)
-      .sort((a, b) => b[1] - a[1])
-      .map(([k, v]) => `• ${k}: **${v}**`)
-      .join('\n') || 'No data';
+    const catText = Object.entries(catMap).sort((a, b) => b[1] - a[1]).map(([k, v]) => `• ${k}: **${v}**`).join('\n') || 'لا يوجد بيانات';
 
     const embed = new EmbedBuilder()
-      .setTitle('📊 Ticket Statistics')
+      .setTitle('📊 إحصائيات التذاكر')
       .addFields(
-        { name: '🎫 Total Tickets', value: `**${counter}**`, inline: true },
-        { name: '🟢 Open', value: `**${open}**`, inline: true },
-        { name: '🔒 Closed', value: `**${closed}**`, inline: true },
-        { name: '⭐ Avg Rating', value: `**${avgRating}**`, inline: true },
-        { name: '📝 Rated', value: `**${rated}**`, inline: true },
+        { name: '🎫 إجمالي التذاكر', value: `**${counter}**`, inline: true },
+        { name: '🟢 مفتوحة', value: `**${open}**`, inline: true },
+        { name: '🔒 مغلقة', value: `**${closed}**`, inline: true },
+        { name: '⭐ متوسط التقييم', value: `**${avgRating}**`, inline: true },
+        { name: '📝 عدد التقييمات', value: `**${rated}**`, inline: true },
         { name: '\u200b', value: '\u200b', inline: true },
-        { name: '📂 By Category', value: catText },
+        { name: '📂 حسب القسم', value: catText },
       )
       .setColor(0x5865f2)
       .setThumbnail(ICON_URL)
