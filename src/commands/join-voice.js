@@ -4,9 +4,9 @@ const { joinVoiceChannel, VoiceConnectionStatus, entersState } = require('@disco
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('join-voice')
-    .setDescription('Join a voice channel and stay 24/7')
+    .setDescription('دخول قناة صوتية والبقاء فيها 24/7')
     .addChannelOption(opt =>
-      opt.setName('channel').setDescription('Voice channel to join').setRequired(true)
+      opt.setName('channel').setDescription('القناة الصوتية').setRequired(true)
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
@@ -14,7 +14,7 @@ module.exports = {
     const channel = interaction.options.getChannel('channel');
 
     if (!channel.isVoiceBased()) {
-      return interaction.reply({ content: '❌ Please select a voice channel.', ephemeral: true });
+      return interaction.reply({ content: '❌ يرجى اختيار قناة صوتية.', flags: 64 });
     }
 
     try {
@@ -39,9 +39,9 @@ module.exports = {
         }
       });
 
-      await interaction.reply({ content: `✅ Joined **${channel.name}** and will stay 24/7! 🎙️`, ephemeral: true });
+      await interaction.reply({ content: `✅ تم الدخول إلى **${channel.name}** وسيبقى البوت فيها 24/7! 🎙️`, flags: 64 });
     } catch (err) {
-      await interaction.reply({ content: `❌ Failed to join: ${err.message}`, ephemeral: true });
+      await interaction.reply({ content: `❌ فشل الدخول: ${err.message}`, flags: 64 });
     }
   }
 };
