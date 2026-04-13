@@ -5,7 +5,7 @@ const { sendTicketPanel } = require('../utils/autoSetup');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('setup-tickets')
-    .setDescription('Send the ticket panel to this channel')
+    .setDescription('إرسال واجهة التذاكر إلى هذه القناة')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction, client) {
@@ -13,7 +13,7 @@ module.exports = {
 
     if (!settings.categories || settings.categories.length === 0) {
       return interaction.reply({
-        content: '❌ No categories configured yet.\nUse `/control-panel` → **Manage Categories** → **Add Category** first.',
+        content: '❌ لا يوجد أقسام.\nاستخدم `/control-panel` ← **إدارة الأقسام** ← **إضافة قسم** أولاً.',
         flags: 64
       });
     }
@@ -22,10 +22,10 @@ module.exports = {
 
     try {
       await sendTicketPanel(interaction.channel, settings, interaction.guildId);
-      await interaction.editReply({ content: '✅ Ticket panel sent successfully to this channel!' });
+      await interaction.editReply({ content: '✅ تم إرسال واجهة التذاكر بنجاح!' });
     } catch (err) {
-      console.error('Setup tickets error:', err);
-      await interaction.editReply({ content: `❌ Error: ${err.message}` });
+      console.error(err);
+      await interaction.editReply({ content: `❌ خطأ: ${err.message}` });
     }
   }
 };
