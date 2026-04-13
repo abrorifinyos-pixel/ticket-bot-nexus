@@ -3,7 +3,7 @@ const {
   ModalBuilder, TextInputBuilder, TextInputStyle, PermissionFlagsBits,
   ChannelType
 } = require('discord.js');
-const { getSettings, updateSettings } = require('../utils/guildSettings');
+const { getSettings } = require('../utils/guildSettings');
 const {
   ICON_URL, BANNER_URL,
   getTicket, createTicketRecord, updateTicket, deleteTicketRecord, nextTicketNumber
@@ -13,67 +13,49 @@ module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
 
-    // ── Slash Commands ─────────────────────────────────────────
     if (interaction.isChatInputCommand()) {
       const command = client.commands.get(interaction.commandName);
       if (!command) return;
       try {
         await command.execute(interaction, client);
       } catch (err) {
-        console.error(`Command error [${interaction.commandName}]:`, err);
-        const msg = { content: '❌ An error occurred while running this command.', flags: 64 };
+        console.error(`خطأ في الأمر [${interaction.commandName}]:`, err);
+        const msg = { content: '❌ حدث خطأ أثناء تنفيذ هذا الأمر.', flags: 64 };
         if (interaction.replied || interaction.deferred) await interaction.followUp(msg).catch(() => {});
         else await interaction.reply(msg).catch(() => {});
       }
       return;
     }
 
-    // ── Select Menu: Create Ticket ─────────────────────────────
     if (interaction.isStringSelectMenu() && interaction.customId === 'ticket_create') {
       await handleTicketCreate(interaction, client);
       return;
     }
 
-    // ── Buttons ────────────────────────────────────────────────
     if (interaction.isButton()) {
-      if (interaction.customId === 'ticket_close') {
-        await handleTicketClose(interaction, client);
-      } else if (interaction.customId === 'ticket_claim') {
-        await handleTicketClaim(interaction, client);
-      } else if (interaction.customId === 'ticket_adduser') {
-        await handleAddUser(interaction, client);
-      } else if (interaction.customId === 'ticket_removeuser') {
-        await handleRemoveUser(interaction, client);
-      } else if (interaction.customId === 'ticket_delete') {
-        await handleTicketDelete(interaction, client);
-      } else if (interaction.customId === 'ticket_reopen') {
-        await handleTicketReopen(interaction, client);
-      } else if (interaction.customId.startsWith('rating_')) {
-        await handleRating(interaction, client);
-      }
+      if (interaction.customId === 'ticket_close') await handleTicketClose(interaction, client);
+      else if (interaction.customId === 'ticket_claim') await handleTicketClaim(interaction, client);
+      else if (interaction.customId === 'ticket_adduser') await handleAddUser(interaction, client);
+      else if (interaction.customId === 'ticket_removeuser') await handleRemoveUser(interaction, client);
+      else if (interaction.customId === 'ticket_delete') await handleTicketDelete(interaction, client);
+      else if (interaction.customId === 'ticket_reopen') await handleTicketReopen(interaction, client);
+      else if (interaction.customId.startsWith('rating_')) await handleRating(interaction, client);
       return;
     }
 
-    // ── Modals ─────────────────────────────────────────────────
     if (interaction.isModalSubmit()) {
-      if (interaction.customId.startsWith('modal_adduser_')) {
-        await handleAddUserModal(interaction, client);
-      } else if (interaction.customId.startsWith('modal_removeuser_')) {
-        await handleRemoveUserModal(interaction, client);
-      } else if (interaction.customId.startsWith('modal_rating_')) {
-        await handleRatingModal(interaction, client);
-      }
+      if (interaction.customId.startsWith('modal_adduser_')) await handleAddUserModal(interaction, client);
+      else if (interaction.customId.startsWith('modal_removeuser_')) await handleRemoveUserModal(interaction, client);
+      else if (interaction.customId.startsWith('modal_rating_')) await handleRatingModal(interaction, client);
     }
   }
 };
-
-// ── Helpers ────────────────────────────────────────────────────
 
 function isStaff(interaction, settings) {
   return (settings.staffRoleIds || []).some(r => interaction.member.roles.cache.has(r));
 }
 
-// ── Ticket Create ──────────────────────────────────────────────
+// ── فتح تذكرة ─────────────────────────────────────────────────
 async function handleTicketCreate(interaction, client) {
   await interaction.deferReply({ flags: 64 });
 
@@ -81,20 +63,16 @@ async function handleTicketCreate(interaction, client) {
   const categoryId = interaction.values[0];
   const category = (settings.categories || []).find(c => c.id === categoryId);
 
-  if (!category) {
-    return interaction.editReply({ content: '❌ Category not found.' });
-  }
+  if (!category) return interaction.editReply({ content: '❌ القسم غير موجود.' });
 
-  // Check for existing open ticket
   const existing = interaction.guild.channels.cache.find(
     ch => ch.topic && ch.topic.includes(`user:${interaction.user.id}:open`)
   );
-  if (existing) {
-    return interaction.editReply({ content: `❌ You already have an open ticket: ${existing}` });
-  }
+  if (existing) return interaction.editReply({ content: `❌ لديك تذكرة مفتوحة بالفعل: ${existing}` });
 
   const ticketNum = nextTicketNumber(interaction.guildId);
-  const channelName = `${category.label.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${String(ticketNum).padStart(4, '0')}`;
+  const catSlug = category.id.replace(/[^a-z0-9]/gi, '-');
+  const channelName = `${catSlug}-${String(ticketNum).padStart(4, '0')}`;
 
   const staffRoles = settings.staffRoleIds || [];
   const permOverwrites = [
@@ -123,8 +101,8 @@ async function handleTicketCreate(interaction, client) {
       permissionOverwrites: permOverwrites,
     });
   } catch (err) {
-    console.error('Failed to create ticket channel:', err);
-    return interaction.editReply({ content: '❌ Failed to create ticket channel. Check my permissions.' });
+    console.error('فشل إنشاء قناة التذكرة:', err);
+    return interaction.editReply({ content: '❌ فشل إنشاء قناة التذكرة. تأكد من صلاحيات البوت.' });
   }
 
   createTicketRecord(channel.id, {
@@ -140,13 +118,13 @@ async function handleTicketCreate(interaction, client) {
   });
 
   const embed = new EmbedBuilder()
-    .setTitle(`${category.emoji || '🎫'} ${category.label} | Ticket #${String(ticketNum).padStart(4, '0')}`)
+    .setTitle(`${category.emoji || '🎫'} ${category.label} | تذكرة رقم #${String(ticketNum).padStart(4, '0')}`)
     .setDescription(
-      `Hello ${interaction.user}! 👋\n\n` +
-      `**Category:** ${category.emoji || '🎫'} ${category.label}\n` +
-      `**Status:** 🟢 Open\n\n` +
-      `Please describe your issue clearly and our team will assist you shortly.\n\n` +
-      `> ⚠️ Do not ping staff — they will respond as soon as possible.`
+      `مرحباً ${interaction.user}! 👋\n\n` +
+      `**القسم:** ${category.emoji || '🎫'} ${category.label}\n` +
+      `**الحالة:** 🟢 مفتوحة\n\n` +
+      `اشرح مشكلتك بوضوح وسيقوم فريقنا بمساعدتك في أقرب وقت.\n\n` +
+      `> ⚠️ لا تقم بمنشن الإدارة — سيتم الرد عليك بأقرب وقت.`
     )
     .setColor(0x5865f2)
     .setThumbnail(ICON_URL)
@@ -155,10 +133,10 @@ async function handleTicketCreate(interaction, client) {
     .setTimestamp();
 
   const buttons = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_close').setLabel('Close').setEmoji('🔒').setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId('ticket_claim').setLabel('Claim').setEmoji('🙋').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('ticket_adduser').setLabel('Add User').setEmoji('➕').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('ticket_removeuser').setLabel('Remove User').setEmoji('➖').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('ticket_close').setLabel('إغلاق').setEmoji('🔒').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('ticket_claim').setLabel('استلام').setEmoji('🙋').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('ticket_adduser').setLabel('إضافة عضو').setEmoji('➕').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('ticket_removeuser').setLabel('إزالة عضو').setEmoji('➖').setStyle(ButtonStyle.Secondary),
   );
 
   await channel.send({
@@ -168,33 +146,30 @@ async function handleTicketCreate(interaction, client) {
   });
 
   await logEvent(client, interaction.guildId, 'open', { channel, user: interaction.user, ticket: { categoryLabel: category.label, ticketNumber: ticketNum } });
-  await interaction.editReply({ content: `✅ Your ticket has been created: ${channel}` });
+  await interaction.editReply({ content: `✅ تم فتح تذكرتك بنجاح: ${channel}` });
 }
 
-// ── Ticket Close ───────────────────────────────────────────────
+// ── إغلاق تذكرة ───────────────────────────────────────────────
 async function handleTicketClose(interaction, client) {
   const ticket = getTicket(interaction.channelId);
-  if (!ticket) return interaction.reply({ content: '❌ This channel is not a ticket.', flags: 64 });
-  if (ticket.status === 'closed') return interaction.reply({ content: '❌ Ticket is already closed.', flags: 64 });
+  if (!ticket) return interaction.reply({ content: '❌ هذه القناة ليست تذكرة.', flags: 64 });
+  if (ticket.status === 'closed') return interaction.reply({ content: '❌ التذكرة مغلقة بالفعل.', flags: 64 });
 
   const settings = getSettings(interaction.guildId);
   if (!isStaff(interaction, settings) && interaction.user.id !== ticket.userId) {
-    return interaction.reply({ content: '❌ You do not have permission to close this ticket.', flags: 64 });
+    return interaction.reply({ content: '❌ ليس لديك صلاحية لإغلاق هذه التذكرة.', flags: 64 });
   }
 
   await interaction.deferReply();
-
   updateTicket(interaction.channelId, { status: 'closed', closedBy: interaction.user.id, closedAt: Date.now() });
-
-  // Remove write access from ticket owner
   await interaction.channel.permissionOverwrites.edit(ticket.userId, { SendMessages: false }).catch(() => {});
 
   const embed = new EmbedBuilder()
-    .setTitle('🔒 Ticket Closed')
+    .setTitle('🔒 تم إغلاق التذكرة')
     .setDescription(
-      `This ticket was closed by ${interaction.user}.\n\n` +
-      `**${await getMember(interaction, ticket.userId)}**, please rate your support experience below.\n` +
-      `⚠️ Rating and comment are **required**.`
+      `تم إغلاق التذكرة بواسطة ${interaction.user}\n\n` +
+      `**<@${ticket.userId}>** يرجى تقييم تجربتك مع الدعم.\n` +
+      `⚠️ التقييم والتعليق **إجباريان**.`
     )
     .setColor(0xed4245)
     .setFooter({ text: '𝐍𝐞𝐱𝐮𝐬 𝐒𝐜𝐫𝐢𝐩𝐭', iconURL: ICON_URL })
@@ -209,42 +184,42 @@ async function handleTicketClose(interaction, client) {
   );
 
   const actionRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('ticket_reopen').setLabel('Reopen').setEmoji('🔓').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('ticket_delete').setLabel('Delete Ticket').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('ticket_reopen').setLabel('إعادة فتح').setEmoji('🔓').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('ticket_delete').setLabel('حذف التذكرة').setEmoji('🗑️').setStyle(ButtonStyle.Danger),
   );
 
   await interaction.editReply({ embeds: [embed], components: [ratingRow, actionRow] });
   await logEvent(client, interaction.guildId, 'close', { channel: interaction.channel, user: interaction.user, ticket });
 }
 
-// ── Ticket Reopen ──────────────────────────────────────────────
+// ── إعادة فتح ─────────────────────────────────────────────────
 async function handleTicketReopen(interaction, client) {
   const ticket = getTicket(interaction.channelId);
-  if (!ticket) return interaction.reply({ content: '❌ Not a ticket channel.', flags: 64 });
+  if (!ticket) return interaction.reply({ content: '❌ هذه القناة ليست تذكرة.', flags: 64 });
 
   const settings = getSettings(interaction.guildId);
-  if (!isStaff(interaction, settings)) return interaction.reply({ content: '❌ Only staff can reopen tickets.', flags: 64 });
+  if (!isStaff(interaction, settings)) return interaction.reply({ content: '❌ فقط الستاف يمكنهم إعادة فتح التذاكر.', flags: 64 });
 
   await interaction.channel.permissionOverwrites.edit(ticket.userId, {
     ViewChannel: true, SendMessages: true, ReadMessageHistory: true,
   }).catch(() => {});
 
   updateTicket(interaction.channelId, { status: 'open', closedBy: null, closedAt: null });
-  await interaction.reply({ content: '🔓 Ticket has been reopened.' });
+  await interaction.reply({ content: '🔓 تم إعادة فتح التذكرة.' });
 }
 
-// ── Ticket Delete ──────────────────────────────────────────────
+// ── حذف تذكرة ─────────────────────────────────────────────────
 async function handleTicketDelete(interaction, client) {
   const ticket = getTicket(interaction.channelId);
-  if (!ticket) return interaction.reply({ content: '❌ Not a ticket channel.', flags: 64 });
+  if (!ticket) return interaction.reply({ content: '❌ هذه القناة ليست تذكرة.', flags: 64 });
   if (ticket.status !== 'closed') {
-    return interaction.reply({ content: '❌ Close the ticket first before deleting it.', flags: 64 });
+    return interaction.reply({ content: '❌ يجب إغلاق التذكرة أولاً قبل حذفها.', flags: 64 });
   }
 
   const settings = getSettings(interaction.guildId);
-  if (!isStaff(interaction, settings)) return interaction.reply({ content: '❌ Only staff can delete tickets.', flags: 64 });
+  if (!isStaff(interaction, settings)) return interaction.reply({ content: '❌ فقط الستاف يمكنهم حذف التذاكر.', flags: 64 });
 
-  await interaction.reply({ content: '🗑️ Deleting ticket in 5 seconds...' });
+  await interaction.reply({ content: '🗑️ سيتم حذف التذكرة خلال 5 ثوانٍ...' });
   await logEvent(client, interaction.guildId, 'delete', { channel: interaction.channel, user: interaction.user, ticket });
 
   setTimeout(async () => {
@@ -253,34 +228,35 @@ async function handleTicketDelete(interaction, client) {
   }, 5000);
 }
 
-// ── Claim Ticket ───────────────────────────────────────────────
+// ── استلام تذكرة ──────────────────────────────────────────────
 async function handleTicketClaim(interaction, client) {
   const ticket = getTicket(interaction.channelId);
-  if (!ticket) return interaction.reply({ content: '❌ Not a ticket channel.', flags: 64 });
+  if (!ticket) return interaction.reply({ content: '❌ هذه القناة ليست تذكرة.', flags: 64 });
 
   const settings = getSettings(interaction.guildId);
-  if (!isStaff(interaction, settings)) return interaction.reply({ content: '❌ Only staff can claim tickets.', flags: 64 });
+  if (!isStaff(interaction, settings)) return interaction.reply({ content: '❌ فقط الستاف يمكنهم استلام التذاكر.', flags: 64 });
 
   if (ticket.claimedBy) {
-    return interaction.reply({ content: `❌ Already claimed by <@${ticket.claimedBy}>.`, flags: 64 });
+    return interaction.reply({ content: `❌ التذكرة مستلَمة بالفعل من قِبَل <@${ticket.claimedBy}>.`, flags: 64 });
   }
 
   updateTicket(interaction.channelId, { claimedBy: interaction.user.id });
-
   await interaction.reply({
-    embeds: [new EmbedBuilder().setDescription(`🙋 Ticket claimed by ${interaction.user}`).setColor(0x57f287)]
+    embeds: [new EmbedBuilder().setDescription(`🙋 تم استلام التذكرة بواسطة ${interaction.user}`).setColor(0x57f287)]
   });
 }
 
-// ── Add User ───────────────────────────────────────────────────
+// ── إضافة عضو ─────────────────────────────────────────────────
 async function handleAddUser(interaction, client) {
   const ticket = getTicket(interaction.channelId);
-  if (!ticket) return interaction.reply({ content: '❌ Not a ticket channel.', flags: 64 });
+  if (!ticket) return interaction.reply({ content: '❌ هذه القناة ليست تذكرة.', flags: 64 });
 
-  const modal = new ModalBuilder().setCustomId(`modal_adduser_${interaction.channelId}`).setTitle('Add User to Ticket');
+  const modal = new ModalBuilder()
+    .setCustomId(`modal_adduser_${interaction.channelId}`)
+    .setTitle('إضافة عضو إلى التذكرة');
   modal.addComponents(
     new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('user_id').setLabel('User ID').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Enter user ID...')
+      new TextInputBuilder().setCustomId('user_id').setLabel('معرّف المستخدم (ID)').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('أدخل ID المستخدم...')
     )
   );
   await interaction.showModal(modal);
@@ -293,21 +269,23 @@ async function handleAddUserModal(interaction, client) {
     await interaction.channel.permissionOverwrites.edit(member.id, {
       ViewChannel: true, SendMessages: true, ReadMessageHistory: true
     });
-    await interaction.reply({ content: `✅ ${member} has been added to the ticket.` });
+    await interaction.reply({ content: `✅ تم إضافة ${member} إلى التذكرة.` });
   } catch {
-    await interaction.reply({ content: '❌ User not found. Make sure you entered a valid User ID.', flags: 64 });
+    await interaction.reply({ content: '❌ المستخدم غير موجود. تأكد من إدخال ID صحيح.', flags: 64 });
   }
 }
 
-// ── Remove User ────────────────────────────────────────────────
+// ── إزالة عضو ─────────────────────────────────────────────────
 async function handleRemoveUser(interaction, client) {
   const ticket = getTicket(interaction.channelId);
-  if (!ticket) return interaction.reply({ content: '❌ Not a ticket channel.', flags: 64 });
+  if (!ticket) return interaction.reply({ content: '❌ هذه القناة ليست تذكرة.', flags: 64 });
 
-  const modal = new ModalBuilder().setCustomId(`modal_removeuser_${interaction.channelId}`).setTitle('Remove User from Ticket');
+  const modal = new ModalBuilder()
+    .setCustomId(`modal_removeuser_${interaction.channelId}`)
+    .setTitle('إزالة عضو من التذكرة');
   modal.addComponents(
     new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('user_id').setLabel('User ID').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('Enter user ID...')
+      new TextInputBuilder().setCustomId('user_id').setLabel('معرّف المستخدم (ID)').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('أدخل ID المستخدم...')
     )
   );
   await interaction.showModal(modal);
@@ -318,52 +296,50 @@ async function handleRemoveUserModal(interaction, client) {
   try {
     const member = await interaction.guild.members.fetch(rawInput);
     await interaction.channel.permissionOverwrites.delete(member.id);
-    await interaction.reply({ content: `✅ ${member} has been removed from the ticket.` });
+    await interaction.reply({ content: `✅ تم إزالة ${member} من التذكرة.` });
   } catch {
-    await interaction.reply({ content: '❌ User not found.', flags: 64 });
+    await interaction.reply({ content: '❌ المستخدم غير موجود.', flags: 64 });
   }
 }
 
-// ── Rating ─────────────────────────────────────────────────────
+// ── التقييم ───────────────────────────────────────────────────
 async function handleRating(interaction, client) {
   const stars = parseInt(interaction.customId.replace('rating_', ''));
   const ticket = getTicket(interaction.channelId);
-  if (!ticket) return interaction.reply({ content: '❌ Not a ticket channel.', flags: 64 });
+  if (!ticket) return interaction.reply({ content: '❌ هذه القناة ليست تذكرة.', flags: 64 });
   if (interaction.user.id !== ticket.userId) {
-    return interaction.reply({ content: '❌ Only the ticket owner can rate.', flags: 64 });
+    return interaction.reply({ content: '❌ فقط صاحب التذكرة يمكنه التقييم.', flags: 64 });
   }
   if (ticket.rating) {
-    return interaction.reply({ content: '❌ You have already rated this ticket.', flags: 64 });
+    return interaction.reply({ content: '❌ لقد قمت بتقييم هذه التذكرة مسبقاً.', flags: 64 });
   }
 
   const modal = new ModalBuilder()
     .setCustomId(`modal_rating_${interaction.channelId}_${stars}`)
-    .setTitle(`Rate Your Experience — ${stars} ⭐`);
+    .setTitle(`تقييم التجربة — ${stars} ⭐`);
 
   modal.addComponents(
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('comment')
-        .setLabel('Your comment (required)')
+        .setLabel('تعليقك (إجباري)')
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true)
         .setMinLength(5)
-        .setPlaceholder('Tell us about your experience...')
+        .setPlaceholder('شاركنا تجربتك...')
     )
   );
-
   await interaction.showModal(modal);
 }
 
 async function handleRatingModal(interaction, client) {
   const parts = interaction.customId.split('_');
-  const channelId = parts[2];
   const stars = parseInt(parts[3]);
   const comment = interaction.fields.getTextInputValue('comment');
 
   const ticket = getTicket(interaction.channelId);
-  if (!ticket) return interaction.reply({ content: '❌ Ticket not found.', flags: 64 });
-  if (ticket.rating) return interaction.reply({ content: '❌ Already rated.', flags: 64 });
+  if (!ticket) return interaction.reply({ content: '❌ التذكرة غير موجودة.', flags: 64 });
+  if (ticket.rating) return interaction.reply({ content: '❌ تم التقييم مسبقاً.', flags: 64 });
 
   updateTicket(interaction.channelId, { rating: stars, ratingComment: comment });
 
@@ -371,18 +347,17 @@ async function handleRatingModal(interaction, client) {
   if (settings.ratingsChannelId) {
     const ratingsChannel = interaction.guild.channels.cache.get(settings.ratingsChannelId);
     if (ratingsChannel) {
-      const starsText = '⭐'.repeat(stars);
       await ratingsChannel.send({
         embeds: [
           new EmbedBuilder()
-            .setTitle('📝 New Ticket Rating')
+            .setTitle('📝 تقييم جديد')
             .addFields(
-              { name: '👤 User', value: `<@${ticket.userId}>`, inline: true },
-              { name: '⭐ Rating', value: starsText, inline: true },
-              { name: '📂 Category', value: ticket.categoryLabel || 'Unknown', inline: true },
-              { name: '💬 Comment', value: comment },
-              { name: '🙋 Handled by', value: ticket.claimedBy ? `<@${ticket.claimedBy}>` : 'Not claimed', inline: true },
-              { name: '🎫 Ticket', value: `#${String(ticket.ticketNumber).padStart(4, '0')}`, inline: true },
+              { name: '👤 المستخدم', value: `<@${ticket.userId}>`, inline: true },
+              { name: '⭐ التقييم', value: '⭐'.repeat(stars), inline: true },
+              { name: '📂 القسم', value: ticket.categoryLabel || 'غير معروف', inline: true },
+              { name: '💬 التعليق', value: comment },
+              { name: '🙋 المستلِم', value: ticket.claimedBy ? `<@${ticket.claimedBy}>` : 'لم يُستلم', inline: true },
+              { name: '🎫 رقم التذكرة', value: `#${String(ticket.ticketNumber).padStart(4, '0')}`, inline: true },
             )
             .setColor(0xfee75c)
             .setFooter({ text: '𝐍𝐞𝐱𝐮𝐬 𝐒𝐜𝐫𝐢𝐩𝐭', iconURL: ICON_URL })
@@ -393,12 +368,12 @@ async function handleRatingModal(interaction, client) {
   }
 
   await interaction.reply({
-    embeds: [new EmbedBuilder().setDescription(`✅ Thank you for your feedback! You rated ${'⭐'.repeat(stars)}`).setColor(0x57f287)],
+    embeds: [new EmbedBuilder().setDescription(`✅ شكراً على تقييمك! منحتنا ${'⭐'.repeat(stars)}`).setColor(0x57f287)],
     flags: 64
   });
 }
 
-// ── Log Event ──────────────────────────────────────────────────
+// ── اللوغات ───────────────────────────────────────────────────
 async function logEvent(client, guildId, type, data) {
   const settings = getSettings(guildId);
   if (!settings.logsChannelId) return;
@@ -411,30 +386,21 @@ async function logEvent(client, guildId, type, data) {
 
   const colors = { open: 0x57f287, close: 0xed4245, delete: 0x808080 };
   const icons = { open: '🎫', close: '🔒', delete: '🗑️' };
+  const labels = { open: 'فتح', close: 'إغلاق', delete: 'حذف' };
 
   await logsChannel.send({
     embeds: [
       new EmbedBuilder()
-        .setTitle(`${icons[type] || '📋'} Ticket ${type.charAt(0).toUpperCase() + type.slice(1)}`)
+        .setTitle(`${icons[type] || '📋'} تذكرة — ${labels[type] || type}`)
         .addFields(
-          { name: '📌 Channel', value: data.channel ? `#${data.channel.name}` : 'Unknown', inline: true },
-          { name: '👤 User', value: data.user ? `${data.user}` : 'Unknown', inline: true },
-          { name: '📂 Category', value: data.ticket?.categoryLabel || 'Unknown', inline: true },
-          { name: '🎫 Ticket #', value: String(data.ticket?.ticketNumber || '?').padStart(4, '0'), inline: true },
+          { name: '📌 القناة', value: data.channel ? `#${data.channel.name}` : 'غير معروف', inline: true },
+          { name: '👤 المستخدم', value: data.user ? `${data.user}` : 'غير معروف', inline: true },
+          { name: '📂 القسم', value: data.ticket?.categoryLabel || 'غير معروف', inline: true },
+          { name: '🎫 رقم التذكرة', value: `#${String(data.ticket?.ticketNumber || '0').padStart(4, '0')}`, inline: true },
         )
         .setColor(colors[type] || 0x5865f2)
         .setFooter({ text: '𝐍𝐞𝐱𝐮𝐬 𝐒𝐜𝐫𝐢𝐩𝐭', iconURL: ICON_URL })
         .setTimestamp()
     ]
   }).catch(() => {});
-}
-
-// ── Util ───────────────────────────────────────────────────────
-async function getMember(interaction, userId) {
-  try {
-    const m = await interaction.guild.members.fetch(userId);
-    return `${m}`;
-  } catch {
-    return `<@${userId}>`;
-  }
 }
