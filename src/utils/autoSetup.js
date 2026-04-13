@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, PermissionFlagsBits } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 const { getSettings, updateSettings } = require('./guildSettings');
 const { ICON_URL, BANNER_URL } = require('./ticketManager');
 
@@ -9,39 +9,37 @@ const RATINGS_CHANNEL_ID = '1492996586647584808';
 const STAFF_ROLE_ID = '1492994348239949996';
 
 const DEFAULT_CATEGORIES = [
-  { id: 'general', label: 'General Support', emoji: '🎫', description: 'General inquiries and support' },
-  { id: 'bug', label: 'Bug Report', emoji: '🐛', description: 'Report a bug or issue' },
-  { id: 'purchase', label: 'Purchase', emoji: '💳', description: 'Purchasing scripts or services' },
-  { id: 'partnership', label: 'Partnership', emoji: '🤝', description: 'Partnership requests' },
-  { id: 'other', label: 'Other', emoji: '📌', description: 'Other requests' },
+  { id: 'buy',        label: 'شراء سكريبت',    emoji: '🛒', description: 'Buy a script or service' },
+  { id: 'support',    label: 'دعم تقني',         emoji: '🔧', description: 'Technical support & help' },
+  { id: 'bug',        label: 'بلاغ مشكلة',       emoji: '🐛', description: 'Report a bug or issue' },
+  { id: 'partnership',label: 'شراكة',             emoji: '🤝', description: 'Partnership requests' },
+  { id: 'suggestion', label: 'اقتراح',            emoji: '💡', description: 'Suggestions and ideas' },
+  { id: 'other',      label: 'أخرى',              emoji: '📌', description: 'Other requests' },
 ];
 
 module.exports = async function autoSetup(client) {
   const guild = client.guilds.cache.get(MAIN_GUILD_ID);
   if (!guild) return console.warn('⚠️ Main guild not found for auto-setup');
 
-  let settings = getSettings(MAIN_GUILD_ID);
+  // Always apply main guild settings on startup
+  const settings = updateSettings(MAIN_GUILD_ID, {
+    categories: DEFAULT_CATEGORIES,
+    logsChannelId: LOGS_CHANNEL_ID,
+    ratingsChannelId: RATINGS_CHANNEL_ID,
+    categoryId: MAIN_CATEGORY_ID,
+    staffRoleIds: [STAFF_ROLE_ID],
+  });
 
-  if (!settings.categories || settings.categories.length === 0) {
-    settings = updateSettings(MAIN_GUILD_ID, {
-      categories: DEFAULT_CATEGORIES,
-      logsChannelId: LOGS_CHANNEL_ID,
-      ratingsChannelId: RATINGS_CHANNEL_ID,
-      categoryId: MAIN_CATEGORY_ID,
-      staffRoleIds: [STAFF_ROLE_ID],
-    });
-  }
-
-  if (settings.ticketPanelMessageId) return;
+  // Clear old panel so it re-sends
+  const fresh = getSettings(MAIN_GUILD_ID);
 
   try {
-    const ticketsChannel = guild.channels.cache.find(
-      c => c.parentId === MAIN_CATEGORY_ID && c.name.includes('ticket')
-    ) || guild.channels.cache.find(c => c.parentId === MAIN_CATEGORY_ID);
+    const ticketsChannel =
+      guild.channels.cache.find(c => c.parentId === MAIN_CATEGORY_ID && c.name.toLowerCase().includes('ticket')) ||
+      guild.channels.cache.find(c => c.parentId === MAIN_CATEGORY_ID);
 
     if (!ticketsChannel) {
-      console.warn('⚠️ No channel found in ticket category for panel');
-      return;
+      return console.warn('⚠️ No channel found in ticket category — run /setup-tickets manually');
     }
 
     await sendTicketPanel(ticketsChannel, settings, MAIN_GUILD_ID);
@@ -52,7 +50,9 @@ module.exports = async function autoSetup(client) {
 };
 
 async function sendTicketPanel(channel, settings, guildId) {
-  const categories = settings.categories || DEFAULT_CATEGORIES;
+  const categories = (settings.categories && settings.categories.length)
+    ? settings.categories
+    : DEFAULT_CATEGORIES;
 
   const embed = new EmbedBuilder()
     .setTitle('𝐍𝐞𝐱𝐮𝐬 𝐒𝐜𝐫𝐢𝐩𝐭 - Ticketing System')
@@ -84,7 +84,6 @@ async function sendTicketPanel(channel, settings, guildId) {
     .addOptions(options);
 
   const row = new ActionRowBuilder().addComponents(menu);
-
   const msg = await channel.send({ embeds: [embed], components: [row] });
 
   updateSettings(guildId, {
@@ -96,3 +95,4 @@ async function sendTicketPanel(channel, settings, guildId) {
 }
 
 module.exports.sendTicketPanel = sendTicketPanel;
+module.exports.DEFAULT_CATEGORIES = DEFAULT_CATEGORIES;
