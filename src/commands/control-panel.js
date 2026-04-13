@@ -10,7 +10,7 @@ const { sendTicketPanel } = require('../utils/autoSetup');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('control-panel')
-    .setDescription('Open the bot control panel')
+    .setDescription('فتح لوحة تحكم البوت')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   async execute(interaction, client) {
@@ -22,28 +22,28 @@ module.exports = {
 async function showMainPanel(interaction, settings, client, isUpdate = false) {
   const cats = settings.categories || [];
   const embed = new EmbedBuilder()
-    .setTitle('⚙️ Control Panel — 𝐍𝐞𝐱𝐮𝐬 𝐒𝐜𝐫𝐢𝐩𝐭')
-    .setDescription('Manage your ticket system from here.')
+    .setTitle('⚙️ لوحة التحكم — 𝐍𝐞𝐱𝐮𝐬 𝐒𝐜𝐫𝐢𝐩𝐭')
+    .setDescription('تحكم في نظام التذاكر من هنا.')
     .addFields(
-      { name: '📂 Categories', value: cats.length ? cats.map(c => `${c.emoji || '🎫'} ${c.label}`).join('\n') : 'None configured', inline: false },
-      { name: '📋 Logs Channel', value: settings.logsChannelId ? `<#${settings.logsChannelId}>` : 'Not set', inline: true },
-      { name: '⭐ Ratings Channel', value: settings.ratingsChannelId ? `<#${settings.ratingsChannelId}>` : 'Not set', inline: true },
-      { name: '📁 Ticket Category', value: settings.categoryId ? `<#${settings.categoryId}>` : 'Not set', inline: true },
-      { name: '👑 Staff Roles', value: (settings.staffRoleIds || []).map(r => `<@&${r}>`).join(', ') || 'Not set', inline: false },
+      { name: '📂 الأقسام', value: cats.length ? cats.map(c => `${c.emoji || '🎫'} ${c.label}`).join('\n') : 'لا يوجد أقسام', inline: false },
+      { name: '📋 روم اللوغات', value: settings.logsChannelId ? `<#${settings.logsChannelId}>` : 'غير محدد', inline: true },
+      { name: '⭐ روم التقييم', value: settings.ratingsChannelId ? `<#${settings.ratingsChannelId}>` : 'غير محدد', inline: true },
+      { name: '📁 كاتاغوري التذاكر', value: settings.categoryId ? `<#${settings.categoryId}>` : 'غير محدد', inline: true },
+      { name: '👑 رولات الستاف', value: (settings.staffRoleIds || []).map(r => `<@&${r}>`).join(', ') || 'غير محدد', inline: false },
     )
     .setColor(0x5865f2)
     .setThumbnail(ICON_URL)
     .setFooter({ text: '𝐍𝐞𝐱𝐮𝐬 𝐒𝐜𝐫𝐢𝐩𝐭', iconURL: ICON_URL });
 
   const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('cp_categories').setLabel('Manage Categories').setEmoji('📂').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId('cp_logs').setLabel('Set Logs Channel').setEmoji('📋').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('cp_ratings').setLabel('Set Ratings Channel').setEmoji('⭐').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('cp_categories').setLabel('إدارة الأقسام').setEmoji('📂').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('cp_logs').setLabel('روم اللوغات').setEmoji('📋').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('cp_ratings').setLabel('روم التقييم').setEmoji('⭐').setStyle(ButtonStyle.Secondary),
   );
   const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('cp_category').setLabel('Set Category').setEmoji('📁').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('cp_roles').setLabel('Set Staff Roles').setEmoji('👑').setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId('cp_panel').setLabel('Send Ticket Panel').setEmoji('🎫').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId('cp_category').setLabel('الكاتاغوري').setEmoji('📁').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('cp_roles').setLabel('رولات الستاف').setEmoji('👑').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('cp_panel').setLabel('إرسال واجهة التذاكر').setEmoji('🎫').setStyle(ButtonStyle.Success),
   );
 
   const payload = { embeds: [embed], components: [row1, row2], flags: 64 };
@@ -64,36 +64,24 @@ async function showMainPanel(interaction, settings, client, isUpdate = false) {
 
   collector.on('collect', async i => {
     const s = getSettings(interaction.guildId);
-
     try {
-      if (i.customId === 'cp_categories') {
-        await showCategoriesPanel(i, s, interaction.guildId);
-      } else if (i.customId === 'cp_logs') {
-        await showChannelSelector(i, interaction.guildId, 'logs');
-      } else if (i.customId === 'cp_ratings') {
-        await showChannelSelector(i, interaction.guildId, 'ratings');
-      } else if (i.customId === 'cp_category') {
-        await showCategorySelector(i, interaction.guildId);
-      } else if (i.customId === 'cp_roles') {
-        await showRolesInput(i, interaction.guildId);
-      } else if (i.customId === 'cp_panel') {
-        await handleSendPanel(i, client, interaction.guildId);
-      } else if (i.customId === 'cp_back') {
-        await showMainPanel(i, getSettings(interaction.guildId), client, true);
-      } else if (i.customId === 'cp_add_category') {
-        await showAddCategoryModal(i, interaction.guildId);
-      } else if (i.customId === 'cp_delete_cat_select') {
+      if (i.customId === 'cp_categories') await showCategoriesPanel(i, s, interaction.guildId);
+      else if (i.customId === 'cp_logs') await showChannelSelector(i, interaction.guildId, 'logs');
+      else if (i.customId === 'cp_ratings') await showChannelSelector(i, interaction.guildId, 'ratings');
+      else if (i.customId === 'cp_category') await showCategorySelector(i, interaction.guildId);
+      else if (i.customId === 'cp_roles') await showRolesInput(i, interaction.guildId);
+      else if (i.customId === 'cp_panel') await handleSendPanel(i, client, interaction.guildId);
+      else if (i.customId === 'cp_back') await showMainPanel(i, getSettings(interaction.guildId), client, true);
+      else if (i.customId === 'cp_add_category') await showAddCategoryModal(i, interaction.guildId);
+      else if (i.customId === 'cp_delete_cat_select') {
         const catId = i.values[0];
         const cur = getSettings(interaction.guildId);
-        const cats2 = (cur.categories || []).filter(c => c.id !== catId);
-        updateSettings(interaction.guildId, { categories: cats2 });
-        await i.reply({ content: `✅ Category deleted.`, flags: 64 });
+        updateSettings(interaction.guildId, { categories: (cur.categories || []).filter(c => c.id !== catId) });
+        await i.reply({ content: `✅ تم حذف القسم.`, flags: 64 });
       }
     } catch (err) {
-      console.error('Control panel collector error:', err);
-      if (!i.replied && !i.deferred) {
-        await i.reply({ content: '❌ An error occurred.', flags: 64 }).catch(() => {});
-      }
+      console.error('خطأ في لوحة التحكم:', err);
+      if (!i.replied && !i.deferred) await i.reply({ content: '❌ حدث خطأ.', flags: 64 }).catch(() => {});
     }
   });
 }
@@ -101,15 +89,15 @@ async function showMainPanel(interaction, settings, client, isUpdate = false) {
 async function showCategoriesPanel(interaction, settings, guildId) {
   const cats = settings.categories || [];
   const embed = new EmbedBuilder()
-    .setTitle('📂 Manage Categories')
-    .setDescription(cats.length ? cats.map(c => `${c.emoji || '🎫'} **${c.label}** — ID: \`${c.id}\``).join('\n') : 'No categories yet. Add one!')
+    .setTitle('📂 إدارة الأقسام')
+    .setDescription(cats.length ? cats.map(c => `${c.emoji || '🎫'} **${c.label}** — ID: \`${c.id}\``).join('\n') : 'لا يوجد أقسام. أضف قسماً!')
     .setColor(0x5865f2)
     .setFooter({ text: '𝐍𝐞𝐱𝐮𝐬 𝐒𝐜𝐫𝐢𝐩𝐭', iconURL: ICON_URL });
 
   const rows = [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('cp_add_category').setLabel('Add Category').setEmoji('➕').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('cp_back').setLabel('Back').setEmoji('◀️').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId('cp_add_category').setLabel('إضافة قسم').setEmoji('➕').setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId('cp_back').setLabel('رجوع').setEmoji('◀️').setStyle(ButtonStyle.Secondary),
     )
   ];
 
@@ -117,9 +105,9 @@ async function showCategoriesPanel(interaction, settings, guildId) {
     rows.push(new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
         .setCustomId('cp_delete_cat_select')
-        .setPlaceholder('Select category to delete...')
+        .setPlaceholder('اختر قسماً للحذف...')
         .addOptions(cats.slice(0, 25).map(c => ({
-          label: `Delete: ${c.label}`,
+          label: `حذف: ${c.label}`,
           value: c.id,
           emoji: c.emoji || '🗑️',
         })))
@@ -130,22 +118,19 @@ async function showCategoriesPanel(interaction, settings, guildId) {
 }
 
 async function showAddCategoryModal(interaction, guildId) {
-  const modal = new ModalBuilder()
-    .setCustomId('cp_modal_add_category')
-    .setTitle('Add New Category');
-
+  const modal = new ModalBuilder().setCustomId('cp_modal_add_category').setTitle('إضافة قسم جديد');
   modal.addComponents(
     new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('cat_id').setLabel('Category ID (no spaces, lowercase)').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('e.g. support')
+      new TextInputBuilder().setCustomId('cat_id').setLabel('معرّف القسم (بدون مسافات)').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('مثال: support')
     ),
     new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('cat_label').setLabel('Category Label').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('e.g. General Support')
+      new TextInputBuilder().setCustomId('cat_label').setLabel('اسم القسم').setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder('مثال: دعم تقني')
     ),
     new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('cat_emoji').setLabel('Emoji').setStyle(TextInputStyle.Short).setRequired(false).setValue('🎫')
+      new TextInputBuilder().setCustomId('cat_emoji').setLabel('الإيموجي').setStyle(TextInputStyle.Short).setRequired(false).setValue('🎫')
     ),
     new ActionRowBuilder().addComponents(
-      new TextInputBuilder().setCustomId('cat_desc').setLabel('Description (optional)').setStyle(TextInputStyle.Short).setRequired(false)
+      new TextInputBuilder().setCustomId('cat_desc').setLabel('الوصف (اختياري)').setStyle(TextInputStyle.Short).setRequired(false)
     ),
   );
 
@@ -160,14 +145,12 @@ async function showAddCategoryModal(interaction, guildId) {
 
     const s = getSettings(guildId);
     const cats = s.categories || [];
-    if (cats.find(c => c.id === id)) {
-      return submitted.reply({ content: '❌ A category with that ID already exists.', flags: 64 });
-    }
+    if (cats.find(c => c.id === id)) return submitted.reply({ content: '❌ يوجد قسم بهذا المعرّف مسبقاً.', flags: 64 });
     cats.push({ id, label, emoji, description });
     updateSettings(guildId, { categories: cats });
-    await submitted.reply({ content: `✅ Category **${emoji} ${label}** added successfully!`, flags: 64 });
+    await submitted.reply({ content: `✅ تم إضافة قسم **${emoji} ${label}** بنجاح!`, flags: 64 });
   } catch (err) {
-    if (!err.message?.includes('time')) console.error('Add category modal error:', err);
+    if (!err.message?.includes('time')) console.error(err);
   }
 }
 
@@ -177,22 +160,19 @@ async function showChannelSelector(interaction, guildId, type) {
     .sort((a, b) => a.name.localeCompare(b.name))
     .values()].slice(0, 25);
 
-  if (!channels.length) {
-    return interaction.update({ content: '❌ No text channels found.', embeds: [], components: [] });
-  }
+  if (!channels.length) return interaction.update({ content: '❌ لا توجد قنوات نصية.', embeds: [], components: [] });
 
-  const embed = new EmbedBuilder()
-    .setTitle(type === 'logs' ? '📋 Select Logs Channel' : '⭐ Select Ratings Channel')
-    .setColor(0x5865f2);
+  const titles = { logs: '📋 اختر روم اللوغات', ratings: '⭐ اختر روم التقييم' };
+  const embed = new EmbedBuilder().setTitle(titles[type] || 'اختر قناة').setColor(0x5865f2);
 
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId(`cp_select_${type}`)
-      .setPlaceholder('Select a channel...')
+      .setPlaceholder('اختر قناة...')
       .addOptions(channels.map(c => ({ label: `#${c.name}`, value: c.id })))
   );
   const back = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('cp_back').setLabel('Back').setEmoji('◀️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('cp_back').setLabel('رجوع').setEmoji('◀️').setStyle(ButtonStyle.Secondary),
   );
 
   await interaction.update({ embeds: [embed], components: [row, back] });
@@ -203,9 +183,8 @@ async function showChannelSelector(interaction, guildId, type) {
   });
   sel.on('collect', async i => {
     const channelId = i.values[0];
-    const patch = type === 'logs' ? { logsChannelId: channelId } : { ratingsChannelId: channelId };
-    updateSettings(guildId, patch);
-    await i.reply({ content: `✅ Channel set to <#${channelId}>`, flags: 64 });
+    updateSettings(guildId, type === 'logs' ? { logsChannelId: channelId } : { ratingsChannelId: channelId });
+    await i.reply({ content: `✅ تم تحديد القناة: <#${channelId}>`, flags: 64 });
   });
 }
 
@@ -214,19 +193,17 @@ async function showCategorySelector(interaction, guildId) {
     .filter(c => c.type === ChannelType.GuildCategory)
     .values()].slice(0, 25);
 
-  if (!cats.length) {
-    return interaction.update({ content: '❌ No category channels found.', embeds: [], components: [] });
-  }
+  if (!cats.length) return interaction.update({ content: '❌ لا توجد كاتاغوري.', embeds: [], components: [] });
 
-  const embed = new EmbedBuilder().setTitle('📁 Select Ticket Category').setColor(0x5865f2);
+  const embed = new EmbedBuilder().setTitle('📁 اختر كاتاغوري التذاكر').setColor(0x5865f2);
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId('cp_select_ticketcat')
-      .setPlaceholder('Select a category...')
+      .setPlaceholder('اختر كاتاغوري...')
       .addOptions(cats.map(c => ({ label: c.name, value: c.id })))
   );
   const back = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId('cp_back').setLabel('Back').setEmoji('◀️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('cp_back').setLabel('رجوع').setEmoji('◀️').setStyle(ButtonStyle.Secondary),
   );
 
   await interaction.update({ embeds: [embed], components: [row, back] });
@@ -237,17 +214,17 @@ async function showCategorySelector(interaction, guildId) {
   });
   sel.on('collect', async i => {
     updateSettings(guildId, { categoryId: i.values[0] });
-    await i.reply({ content: `✅ Ticket category set to <#${i.values[0]}>`, flags: 64 });
+    await i.reply({ content: `✅ تم تحديد الكاتاغوري: <#${i.values[0]}>`, flags: 64 });
   });
 }
 
 async function showRolesInput(interaction, guildId) {
-  const modal = new ModalBuilder().setCustomId('cp_modal_roles').setTitle('Set Staff Roles');
+  const modal = new ModalBuilder().setCustomId('cp_modal_roles').setTitle('تحديد رولات الستاف');
   modal.addComponents(
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('role_ids')
-        .setLabel('Role IDs (comma-separated)')
+        .setLabel('معرّفات الرولات مفصولة بفاصلة')
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true)
         .setPlaceholder('123456789, 987654321')
@@ -258,25 +235,24 @@ async function showRolesInput(interaction, guildId) {
 
   try {
     const submitted = await interaction.awaitModalSubmit({ time: 120_000, filter: i => i.user.id === interaction.user.id && i.customId === 'cp_modal_roles' });
-    const raw = submitted.fields.getTextInputValue('role_ids');
-    const roleIds = raw.split(',').map(r => r.trim().replace(/[<@&>]/g, '')).filter(Boolean);
+    const roleIds = submitted.fields.getTextInputValue('role_ids').split(',').map(r => r.trim().replace(/[<@&>]/g, '')).filter(Boolean);
     updateSettings(guildId, { staffRoleIds: roleIds });
-    await submitted.reply({ content: `✅ Staff roles updated: ${roleIds.map(r => `<@&${r}>`).join(', ')}`, flags: 64 });
+    await submitted.reply({ content: `✅ تم تحديث رولات الستاف: ${roleIds.map(r => `<@&${r}>`).join(', ')}`, flags: 64 });
   } catch (err) {
-    if (!err.message?.includes('time')) console.error('Roles modal error:', err);
+    if (!err.message?.includes('time')) console.error(err);
   }
 }
 
 async function handleSendPanel(interaction, client, guildId) {
   const settings = getSettings(guildId);
-  if (!settings.categories || settings.categories.length === 0) {
-    return interaction.reply({ content: '❌ No categories configured. Add categories first via "Manage Categories".', flags: 64 });
+  if (!settings.categories || !settings.categories.length) {
+    return interaction.reply({ content: '❌ لا يوجد أقسام. أضف أقساماً أولاً من "إدارة الأقسام".', flags: 64 });
   }
   try {
     await sendTicketPanel(interaction.channel, settings, guildId);
-    await interaction.reply({ content: '✅ Ticket panel sent to this channel!', flags: 64 });
+    await interaction.reply({ content: '✅ تم إرسال واجهة التذاكر بنجاح!', flags: 64 });
   } catch (err) {
-    console.error('Send panel error:', err);
-    await interaction.reply({ content: `❌ Error: ${err.message}`, flags: 64 });
+    console.error(err);
+    await interaction.reply({ content: `❌ خطأ: ${err.message}`, flags: 64 });
   }
 }
