@@ -12,14 +12,6 @@ const LOG_TYPES = [
 ];
 
 const DEFAULTS = {
-  // Ticket system
-  categories: [],
-  logsChannelId: null,
-  ratingsChannelId: null,
-  categoryId: null,
-  staffRoleIds: [],
-  ticketCounter: 0,
-  // Logging system
   logSettings: {},
 };
 
