@@ -1,13 +1,12 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { addSong } = require('../utils/musicManager');
-const { ICON_URL } = require('../utils/logManager');
+const { SlashCommandBuilder } = require('discord.js');
+const { getQueue, createQueue, connectToVoice, playSong, searchSong, updatePanel } = require('../utils/musicManager');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('play')
-    .setDescription('تشغيل أغنية من يوتيوب')
+    .setDescription('تشغيل أغنية (يوتيوب / بحث بالاسم)')
     .addStringOption(opt =>
-      opt.setName('query').setDescription('اسم الأغنية أو الرابط').setRequired(true)
+      opt.setName('query').setDescription('اسم الأغنية أو رابط يوتيوب').setRequired(true)
     ),
 
   async execute(interaction, client) {
@@ -22,38 +21,35 @@ module.exports = {
     }
 
     const query = interaction.options.getString('query');
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: 64 });
 
     try {
-      const { queue, song, isNew } = await addSong(
-        interaction.guildId,
-        voiceChannel,
-        interaction.channel,
-        query,
-        `${interaction.user}`
-      );
+      const song = await searchSong(query);
+      song.requestedBy = `${interaction.user}`;
+
+      let queue = getQueue(interaction.guildId);
+      let isNew = false;
+
+      if (!queue) {
+        queue = createQueue(interaction.guildId, interaction.channel, voiceChannel);
+        await connectToVoice(queue);
+        isNew = true;
+      } else {
+        queue.textChannel = interaction.channel;
+      }
+
+      queue.songs.push(song);
 
       if (isNew) {
-        // Now playing message sent by musicManager
-        await interaction.editReply({ content: `🎵 جارٍ تشغيل **${song.title}**` });
+        await interaction.editReply({ content: `✅ جارٍ تشغيل: **${song.title}**` });
+        playSong(queue, queue.songs[0]);
       } else {
-        await interaction.editReply({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(0x5865f2)
-              .setTitle('➕ تمت إضافتها للقائمة')
-              .setDescription(`**[${song.title}](${song.url})**`)
-              .addFields(
-                { name: '⏱️ المدة', value: song.duration || 'غير معروف', inline: true },
-                { name: '📊 الترتيب في القائمة', value: `#${queue.songs.length}`, inline: true },
-              )
-              .setThumbnail(song.thumbnail || null)
-              .setFooter({ text: '𝐍𝐞𝐱𝐮𝐬 𝐒𝐜𝐫𝐢𝐩𝐭', iconURL: ICON_URL })
-          ]
-        });
+        await interaction.editReply({ content: `✅ تمت الإضافة إلى القائمة (#${queue.songs.length}): **${song.title}**` });
+        await updatePanel(queue, queue.songs[0]);
       }
     } catch (err) {
-      await interaction.editReply({ content: `❌ ${err.message}` });
+      console.error('خطأ في /play:', err.message);
+      await interaction.editReply({ content: `❌ فشل البحث أو التشغيل: **${err.message}**` });
     }
   }
 };
