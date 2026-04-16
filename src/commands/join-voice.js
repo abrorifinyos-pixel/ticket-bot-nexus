@@ -4,7 +4,7 @@ const { joinVoiceChannel, VoiceConnectionStatus, entersState } = require('@disco
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('join-voice')
-    .setDescription('دخول قناة صوتية والبقاء فيها 24/7')
+    .setDescription('دخول قناة صوتية والبقاء فيها')
     .addChannelOption(opt =>
       opt.setName('channel').setDescription('القناة الصوتية').setRequired(true)
     )
@@ -12,7 +12,6 @@ module.exports = {
 
   async execute(interaction, client) {
     const channel = interaction.options.getChannel('channel');
-
     if (!channel.isVoiceBased()) {
       return interaction.reply({ content: '❌ يرجى اختيار قناة صوتية.', flags: 64 });
     }
@@ -23,23 +22,9 @@ module.exports = {
         guildId: interaction.guildId,
         adapterCreator: interaction.guild.voiceAdapterCreator,
         selfDeaf: false,
-        selfMute: false,
       });
-
       await entersState(connection, VoiceConnectionStatus.Ready, 30_000);
-
-      connection.on(VoiceConnectionStatus.Disconnected, async () => {
-        try {
-          await Promise.race([
-            entersState(connection, VoiceConnectionStatus.Signalling, 5_000),
-            entersState(connection, VoiceConnectionStatus.Connecting, 5_000),
-          ]);
-        } catch {
-          connection.destroy();
-        }
-      });
-
-      await interaction.reply({ content: `✅ تم الدخول إلى **${channel.name}** وسيبقى البوت فيها 24/7! 🎙️`, flags: 64 });
+      await interaction.reply({ content: `✅ انضممت إلى **${channel.name}** 🎙️`, flags: 64 });
     } catch (err) {
       await interaction.reply({ content: `❌ فشل الدخول: ${err.message}`, flags: 64 });
     }
