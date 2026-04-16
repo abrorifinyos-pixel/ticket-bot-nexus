@@ -9,8 +9,12 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildBans,
     GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildInvites,
+    GatewayIntentBits.GuildEmojisAndStickers,
+    GatewayIntentBits.GuildModeration,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -21,14 +25,11 @@ async function main() {
   await loadCommands(client);
   await loadEvents(client);
 
-  client.once('ready', () => {
-    console.log(`✅ Nexus Script is online as ${client.user.tag}`);
+  client.once('clientReady', () => {
+    console.log(`✅ Nexus Script اتصل بنجاح: ${client.user.tag}`);
 
     client.user.setPresence({
-      activities: [{
-        name: '〆 BY : speeed__.privee',
-        type: ActivityType.Watching,
-      }],
+      activities: [{ name: 'Bot Logs | Bot Music', type: ActivityType.Watching }],
       status: 'online',
     });
 
