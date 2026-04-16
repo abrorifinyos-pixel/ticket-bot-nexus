@@ -9,11 +9,14 @@
     "deploy": "node src/deploy-commands.js"
   },
   "dependencies": {
-    "discord.js": "^14.16.3",
     "@discordjs/voice": "^0.17.0",
-    "opusscript": "^0.1.1",
+    "@distube/ytdl-core": "^4.16.12",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7",
     "mongoose": "^8.9.5",
-    "dotenv": "^16.4.7"
+    "opusscript": "^0.1.1",
+    "play-dl": "^1.9.7",
+    "youtube-sr": "^4.3.12"
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
