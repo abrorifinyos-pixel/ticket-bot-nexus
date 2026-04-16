@@ -27,13 +27,10 @@ async function main() {
 
   client.once('clientReady', () => {
     console.log(`✅ Nexus Script اتصل بنجاح: ${client.user.tag}`);
-
     client.user.setPresence({
       activities: [{ name: 'Bot Logs | Bot Music', type: ActivityType.Watching }],
       status: 'online',
     });
-
-    require('./utils/autoSetup')(client);
   });
 
   await client.login(process.env.DISCORD_BOT_TOKEN);
