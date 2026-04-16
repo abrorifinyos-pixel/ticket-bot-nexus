@@ -1,8 +1,9 @@
 const {
   joinVoiceChannel, createAudioPlayer, createAudioResource,
-  AudioPlayerStatus, VoiceConnectionStatus, entersState, getVoiceConnection
+  AudioPlayerStatus, VoiceConnectionStatus, entersState, StreamType
 } = require('@discordjs/voice');
-const playdl = require('play-dl');
+const ytdl = require('@distube/ytdl-core');
+const YouTubeSearch = require('youtube-sr').default;
 
 const queues = new Map();
 
@@ -10,15 +11,17 @@ function getQueue(guildId) {
   return queues.get(guildId) || null;
 }
 
-function createQueue(guildId) {
+function createQueue(guildId, textChannel, voiceChannel) {
   const queue = {
     guildId,
     songs: [],
     player: createAudioPlayer(),
     connection: null,
-    volume: 100,
+    volume: 1,
     loop: false,
-    textChannel: null,
+    textChannel,
+    voiceChannel,
+    panelMessage: null,
   };
   queues.set(guildId, queue);
   return queue;
@@ -27,49 +30,81 @@ function createQueue(guildId) {
 function deleteQueue(guildId) {
   const queue = queues.get(guildId);
   if (queue) {
-    if (queue.player) queue.player.stop(true);
-    if (queue.connection) queue.connection.destroy();
+    try { queue.player.stop(true); } catch {}
+    try { queue.connection?.destroy(); } catch {}
     queues.delete(guildId);
   }
 }
 
-async function connectToVoice(queue, voiceChannel) {
+async function connectToVoice(queue) {
   queue.connection = joinVoiceChannel({
-    channelId: voiceChannel.id,
-    guildId: voiceChannel.guild.id,
-    adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+    channelId: queue.voiceChannel.id,
+    guildId: queue.voiceChannel.guild.id,
+    adapterCreator: queue.voiceChannel.guild.voiceAdapterCreator,
     selfDeaf: true,
   });
 
+  await entersState(queue.connection, VoiceConnectionStatus.Ready, 15_000);
   queue.connection.subscribe(queue.player);
 
   queue.connection.on(VoiceConnectionStatus.Disconnected, async () => {
     try {
       await Promise.race([
-        entersState(queue.connection, VoiceConnectionStatus.Signalling, 5000),
-        entersState(queue.connection, VoiceConnectionStatus.Connecting, 5000),
+        entersState(queue.connection, VoiceConnectionStatus.Signalling, 5_000),
+        entersState(queue.connection, VoiceConnectionStatus.Connecting, 5_000),
       ]);
     } catch {
-      deleteQueue(voiceChannel.guild.id);
+      deleteQueue(queue.guildId);
     }
   });
+}
 
-  return queue.connection;
+async function searchSong(query) {
+  // Check if it's a YouTube URL
+  if (ytdl.validateURL(query)) {
+    const info = await ytdl.getInfo(query);
+    const details = info.videoDetails;
+    return {
+      title: details.title,
+      url: details.video_url,
+      duration: formatDuration(parseInt(details.lengthSeconds)),
+      thumbnail: details.thumbnails?.at(-1)?.url || null,
+      channel: details.author?.name || 'غير معروف',
+    };
+  }
+
+  // Search on YouTube
+  const results = await YouTubeSearch.search(query, { limit: 1, type: 'video' });
+  if (!results || results.length === 0) throw new Error('لم يتم العثور على نتائج');
+  const video = results[0];
+  return {
+    title: video.title,
+    url: `https://www.youtube.com/watch?v=${video.id}`,
+    duration: formatDuration(video.duration / 1000),
+    thumbnail: video.thumbnail?.url || null,
+    channel: video.channel?.name || 'غير معروف',
+  };
 }
 
 async function playSong(queue, song) {
   if (!song) {
     if (queue.textChannel) {
-      queue.textChannel.send('📭 انتهت قائمة الأغاني. خرجت من الصوت.').catch(() => {});
+      queue.textChannel.send('📭 انتهت قائمة الأغاني. شكراً على الاستماع!').catch(() => {});
     }
-    setTimeout(() => deleteQueue(queue.guildId), 5000);
+    updatePanel(queue, null);
+    setTimeout(() => deleteQueue(queue.guildId), 10_000);
     return;
   }
 
   try {
-    const stream = await playdl.stream(song.url, { quality: 2 });
-    const resource = createAudioResource(stream.stream, {
-      inputType: stream.type,
+    const stream = ytdl(song.url, {
+      filter: 'audioonly',
+      quality: 'highestaudio',
+      highWaterMark: 1 << 25,
+    });
+
+    const resource = createAudioResource(stream, {
+      inputType: StreamType.Arbitrary,
     });
 
     queue.player.play(resource);
@@ -77,7 +112,6 @@ async function playSong(queue, song) {
     queue.player.removeAllListeners(AudioPlayerStatus.Idle);
     queue.player.once(AudioPlayerStatus.Idle, () => {
       if (queue.loop && queue.songs.length > 0) {
-        queue.songs.push(queue.songs.shift());
         playSong(queue, queue.songs[0]);
       } else {
         queue.songs.shift();
@@ -85,82 +119,51 @@ async function playSong(queue, song) {
       }
     });
 
-    if (queue.textChannel) {
-      const { EmbedBuilder } = require('discord.js');
-      const { ICON_URL } = require('./logManager');
-      queue.textChannel.send({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x5865f2)
-            .setTitle('🎵 يتم التشغيل الآن')
-            .setDescription(`**[${song.title}](${song.url})**`)
-            .addFields(
-              { name: '⏱️ المدة', value: song.duration || 'غير معروف', inline: true },
-              { name: '👤 طلب بواسطة', value: song.requestedBy || 'غير معروف', inline: true },
-              { name: '🔁 تكرار', value: queue.loop ? 'مفعّل' : 'معطّل', inline: true },
-            )
-            .setThumbnail(song.thumbnail || null)
-            .setFooter({ text: '𝐍𝐞𝐱𝐮𝐬 𝐒𝐜𝐫𝐢𝐩𝐭', iconURL: ICON_URL })
-        ]
-      }).catch(() => {});
-    }
+    queue.player.removeAllListeners('error');
+    queue.player.on('error', (err) => {
+      console.error('خطأ في المشغّل:', err.message);
+      queue.songs.shift();
+      playSong(queue, queue.songs[0]);
+    });
+
+    // Update the control panel
+    await updatePanel(queue, song);
+
   } catch (err) {
     console.error('خطأ في تشغيل الأغنية:', err.message);
     if (queue.textChannel) {
-      queue.textChannel.send(`❌ فشل تشغيل **${song.title}**، انتقل للتالية...`).catch(() => {});
+      queue.textChannel.send(`❌ فشل تشغيل **${song.title}**، أنتقل للتالية...`).catch(() => {});
     }
     queue.songs.shift();
     playSong(queue, queue.songs[0]);
   }
 }
 
-async function addSong(guildId, voiceChannel, textChannel, query, requestedBy) {
-  let queue = getQueue(guildId);
-  let isNew = false;
+async function updatePanel(queue, song) {
+  const { buildMusicPanel } = require('./musicPanel');
+  if (!queue.textChannel) return;
 
-  if (!queue) {
-    queue = createQueue(guildId);
-    queue.textChannel = textChannel;
-    isNew = true;
-  }
-
-  // Search or validate URL
-  let songInfo;
   try {
-    const type = await playdl.validate(query);
-    if (type === 'yt_video') {
-      const info = await playdl.video_info(query);
-      songInfo = {
-        title: info.video_details.title,
-        url: info.video_details.url,
-        duration: info.video_details.durationRaw,
-        thumbnail: info.video_details.thumbnails?.[0]?.url,
-        requestedBy,
-      };
+    const { embed, components } = buildMusicPanel(queue, song);
+    if (queue.panelMessage) {
+      await queue.panelMessage.edit({ embeds: [embed], components }).catch(async () => {
+        queue.panelMessage = await queue.textChannel.send({ embeds: [embed], components });
+      });
     } else {
-      const results = await playdl.search(query, { source: { youtube: 'video' }, limit: 1 });
-      if (!results || results.length === 0) throw new Error('لا توجد نتائج');
-      const video = results[0];
-      songInfo = {
-        title: video.title,
-        url: video.url,
-        duration: video.durationRaw,
-        thumbnail: video.thumbnails?.[0]?.url,
-        requestedBy,
-      };
+      queue.panelMessage = await queue.textChannel.send({ embeds: [embed], components });
     }
   } catch (err) {
-    throw new Error('فشل البحث: ' + err.message);
+    console.error('خطأ في تحديث اللوحة:', err.message);
   }
-
-  queue.songs.push(songInfo);
-
-  if (isNew) {
-    await connectToVoice(queue, voiceChannel);
-    playSong(queue, queue.songs[0]);
-  }
-
-  return { queue, song: songInfo, isNew };
 }
 
-module.exports = { getQueue, createQueue, deleteQueue, addSong, playSong, connectToVoice };
+function formatDuration(seconds) {
+  if (!seconds || isNaN(seconds)) return '??:??';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+module.exports = { getQueue, createQueue, deleteQueue, connectToVoice, playSong, searchSong, updatePanel, formatDuration };
